@@ -121,15 +121,15 @@ class myThread2(threading.Thread):
                 print("Queue is Empty", file=sys.stderr)
                 return
             try:
-                position = self.q.get(True, 100)
+                data = self.q.get(True, 100)
                 #print(position)
             except queue.Empty:
                 print("Timeout Queue is Empty", file=sys.stderr)
                 return
-            chrom1 = position.split('-')[0].split(':')[0]
-            pos1 = int(position.split('-')[0].split(':')[1])
-            chrom2 = position.split('-')[1].split(':')[0]
-            pos2 = int(position.split('-')[1].split(':')[1])
+            chrom1 = data[0]
+            pos1 = data[1]
+            chrom2 = data[2][0]
+            pos2 = data[2][1]
             read_seqs = []
             read_list = ""
             chrom1_len = 0
@@ -138,7 +138,7 @@ class myThread2(threading.Thread):
             chrom2_read = ""
             chrom1_read_name = ""
             chrom2_read_name = ""
-            for read in self.positions[position]:
+            for read in data[2][2]:
                 seq = self.read_seqs[read]
                 read_seqs.append(seq)
                 read_list += ","+read
@@ -229,10 +229,10 @@ class myThread2(threading.Thread):
                             target += reverse_complement(chrom1_read)[hit.r_st:]
                         else:
                             target += chrom1_read[hit.r_st:]
-                if target == "":
-                    self.t_lock.acquire()
-                    print(str(self.i)+"\tTarget Empty\t"+position+"\t"+chrom1_read_name+"\t"+str(chrom1_len)+"\t"+chrom2_read_name+"\t"+str(chrom2_len), file=sys.stderr)
-                    self.t_lock.release()
+                #if target == "":
+                    #self.t_lock.acquire()
+                    #print(str(self.i)+"\tTarget Empty\t"+position+"\t"+chrom1_read_name+"\t"+str(chrom1_len)+"\t"+chrom2_read_name+"\t"+str(chrom2_len), file=sys.stderr)
+                    #self.t_lock.release()
                 #print("Target\t"+target, flush=True)
                 sorted_read_seqs.insert(0,target)
             else:
@@ -263,7 +263,7 @@ class myThread2(threading.Thread):
                 else:
                     os.system("rm sequences_"+str(self.i)+".fa overlaps_"+str(self.i)+".paf target_"+str(self.i)+".fa")
                     self.t_lock.acquire()
-                    print(str(self.i)+"\tNo overlap found:\t"+position+"\t"+str(len(sorted_read_seqs))+"\t"+str(len(target)), file=sys.stderr)
+                    #print(str(self.i)+"\tNo overlap found:\t"+position+"\t"+str(len(sorted_read_seqs))+"\t"+str(len(target)), file=sys.stderr)
                     print(chrom1+"\t"+str(pos1)+"\t"+chrom2+"\t"+str(pos2)+"\t"+str(len(sorted_read_seqs) - 1)+"\tFalse\tNA\tNA")
                     self.t_lock.release()
                     continue
@@ -291,7 +291,7 @@ class myThread2(threading.Thread):
             #if found1 and found2:
             #    print(chrom1+"\t"+str(pos1)+"\t"+chrom2+"\t"+str(pos2)+"\t"+read_list[1:])
             self.t_lock.acquire()
-            print(ret, file=sys.stderr)
+            #print(ret, file=sys.stderr)
             print(chrom1+"\t"+str(pos1)+"\t"+chrom2+"\t"+str(pos2)+"\t"+str(len(sorted_read_seqs) - 1)+"\tTrue\t"+found1+"\t"+found2)
             self.t_lock.release()
 
@@ -611,11 +611,12 @@ if args.fastq != "NA" and args.ref != "NA":
     t_lock = threading.Lock()
     q = queue.Queue()
     read_seqs = {}
-    for position in positions:
-        q.put(position)
-        for read in positions[position]:
-            seq = fh_in.fetch(read)
-            read_seqs[read] = seq
+    for chrom in positions:
+        for pos in positions[chrom]:
+            q.put([chrom, pos.begin, pos.data])
+            for read in pos.data[2]:
+                seq = fh_in.fetch(read)
+                read_seqs[read] = seq
     for i in range(args.threads):
         print("Submitted "+str(i), file=sys.stderr)
         thread_list[i] = myThread2(i, q, t_lock, positions, read_seqs, nearby_read_alignments, multiple_aligned_reads, read_path_to_positions, args.aligner)
@@ -633,6 +634,9 @@ else:
             count = len(item.data[2])
             print(chrom1+"\t"+str(pos1)+"\t"+chrom2+"\t"+str(pos2)+"\t"+str(count)+"\tFalse\tNA\tNA")
             #print(positions[position])
+
+
+
 
 
 
